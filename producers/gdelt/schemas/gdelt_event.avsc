@@ -1,0 +1,13 @@
+{
+  "namespace": "gdelt.event",
+  "type": "record",
+  "name": "GDELTEvent",
+  "fields": [
+    { "name": "event_id", "type": "string" },
+    { "name": "timestamp", "type": "string" },
+    { "name": "themes", "type": { "type": "array", "items": "string" } },
+    { "name": "organizations", "type": { "type": "array", "items": "string" } },
+    { "name": "locations", "type": { "type": "array", "items": "string" } },
+    { "name": "tone", "type": "float" }
+  ]
+}
