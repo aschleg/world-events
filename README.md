@@ -48,13 +48,13 @@ python3 consumers/gdelt/consumer.py
 Check service health:
 
 ```bash
-docker compose -f docker/docker-compose.yml ps
+docker compose ps
 ```
 
 Tail Kafka and Schema Registry logs:
 
 ```bash
-docker compose -f docker/docker-compose.yml logs -f kafka schema-registry
+docker compose logs -f kafka schema-registry
 ```
 
 ## Shut Down
@@ -62,6 +62,41 @@ docker compose -f docker/docker-compose.yml logs -f kafka schema-registry
 Stop and remove containers:
 
 ```bash
-docker compose -f docker/docker-compose.yml down
+docker compose down
 ```
+
+## Step 2: Ingest Event Stream (Where To Start)
+
+Start with a simple flow:
+
+1. Verify your stack is running:
+
+```bash
+docker compose up -d zookeeper kafka schema-registry
+docker compose ps
+```
+
+2. In terminal A, start consumer to watch messages:
+
+```bash
+python3 consumers/gdelt/consumer.py
+```
+
+3. In terminal B, publish latest GDELT records:
+
+```bash
+python3 producers/gdelt/producer.py --mode latest --max-records 200
+```
+
+4. For quick smoke test, publish one sample event:
+
+```bash
+python3 producers/gdelt/producer.py --mode sample
+```
+
+### Notes
+
+- `--mode latest` downloads the newest GDELT GKG archive and publishes up to `--max-records` parsed events.
+- Current consumer reads one message and exits. Re-run it to inspect additional records.
+- For real-time learning, next improvement is a long-running consumer loop and a scheduled/continuous producer.
 

@@ -1,4 +1,5 @@
 from confluent_kafka import DeserializingConsumer
+from confluent_kafka.error import ConsumeError
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.serialization import StringDeserializer
@@ -26,12 +27,19 @@ consumer_conf = {
 consumer = DeserializingConsumer(consumer_conf)
 consumer.subscribe(['gdelt-events'])
 
-msg = consumer.poll(10.0)
-if msg is None:
-    print("No message received")
-elif msg.error():
-    print(f"Error: {msg.error()}")
-else:
-    print("Received message:", msg.value())
-
-consumer.close()
+try:
+    msg = consumer.poll(10.0)
+    if msg is None:
+        print("No message received")
+    elif msg.error():
+        print(f"Error: {msg.error()}")
+    else:
+        print("Received message:", msg.value())
+except ConsumeError as exc:
+    if "UNKNOWN_TOPIC_OR_PART" in str(exc):
+        print("Topic 'gdelt-events' does not exist yet.")
+        print("Run: python3 producers/gdelt/producer.py --mode sample")
+    else:
+        print(f"Consume error: {exc}")
+finally:
+    consumer.close()

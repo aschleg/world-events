@@ -1,8 +1,13 @@
-import json
+import argparse
 from confluent_kafka import SerializingProducer
 from confluent_kafka.serialization import StringSerializer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
+
+try:
+    from producers.gdelt.fetch_latest_gkg import fetch_and_parse_gkg
+except ModuleNotFoundError:
+    from fetch_latest_gkg import fetch_and_parse_gkg
 
 
 SCHEMA_PATH = "producers/gdelt/schemas/gdelt_event.avsc"
@@ -43,7 +48,57 @@ def delivery_report(err, msg):
     if err is not None:
         print(f"Delivery failed: {err}")
     else:
-        print(f"Message delivered to {msg.topic()} [{msg.partition()}] [{msg.offset()}] {msg.value()}")
+        print(f"Message delivered to {msg.topic()} [{msg.partition()}] [{msg.offset()}]")
 
-producer.produce(topic=TOPIC, key=sample_event["event_id"], value=sample_event, on_delivery=delivery_report)
-producer.flush()
+
+def publish_event(event):
+    producer.produce(
+        topic=TOPIC,
+        key=event["event_id"],
+        value=event,
+        on_delivery=delivery_report,
+    )
+
+
+def publish_sample():
+    publish_event(sample_event)
+    producer.flush()
+
+
+def publish_latest(max_records):
+    events = fetch_and_parse_gkg(max_records=max_records)
+    print(f"Publishing {len(events)} events to topic '{TOPIC}'")
+
+    for event in events:
+        publish_event(event)
+
+    producer.flush()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Produce GDELT events to Kafka")
+    parser.add_argument(
+        "--mode",
+        choices=["sample", "latest"],
+        default="sample",
+        help="sample sends a single hardcoded event; latest downloads latest GKG file",
+    )
+    parser.add_argument(
+        "--max-records",
+        type=int,
+        default=200,
+        help="Maximum number of latest GKG rows to publish when mode=latest",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if args.mode == "sample":
+        publish_sample()
+    else:
+        publish_latest(max_records=args.max_records)
+
+
+if __name__ == "__main__":
+    main()
