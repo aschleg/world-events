@@ -1,13 +1,11 @@
 import argparse
+import time
 from confluent_kafka import SerializingProducer
 from confluent_kafka.serialization import StringSerializer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 
-try:
-    from producers.gdelt.fetch_latest_gkg import fetch_and_parse_gkg
-except ModuleNotFoundError:
-    from fetch_latest_gkg import fetch_and_parse_gkg
+from producers.gdelt.fetch_latest_gkg import fetch_and_parse_gkg
 
 
 SCHEMA_PATH = "producers/gdelt/schemas/gdelt_event.avsc"
@@ -35,14 +33,6 @@ producer_conf = {
 }
 producer = SerializingProducer(producer_conf)
 
-sample_event = {
-    "event_id": "20250630121500",
-    "timestamp": "2025-06-30T12:15:00Z",
-    "themes": ["ECON_STOCKMARKET", "GEOPOLITICS"],
-    "organizations": ["Tesla", "OpenAI"],
-    "locations": ["United States", "California"],
-    "tone": -2.3
-}
 
 def delivery_report(err, msg):
     if err is not None:
@@ -60,11 +50,6 @@ def publish_event(event):
     )
 
 
-def publish_sample():
-    publish_event(sample_event)
-    producer.flush()
-
-
 def publish_latest(max_records):
     events = fetch_and_parse_gkg(max_records=max_records)
     print(f"Publishing {len(events)} events to topic '{TOPIC}'")
@@ -75,13 +60,37 @@ def publish_latest(max_records):
     producer.flush()
 
 
+def stream_latest(max_records, poll_interval_seconds):
+    seen_event_ids = set()
+    print(
+        f"Starting stream mode for topic '{TOPIC}' "
+        f"(max_records={max_records}, poll_interval_seconds={poll_interval_seconds})"
+    )
+
+    while True:
+        events = fetch_and_parse_gkg(max_records=max_records)
+        new_events = [event for event in events if event["event_id"] not in seen_event_ids]
+
+        if new_events:
+            print(f"Publishing {len(new_events)} new events")
+            for event in new_events:
+                publish_event(event)
+                seen_event_ids.add(event["event_id"])
+
+            producer.flush()
+        else:
+            print("No new events found in latest GKG snapshot")
+
+        time.sleep(poll_interval_seconds)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Produce GDELT events to Kafka")
     parser.add_argument(
         "--mode",
-        choices=["sample", "latest"],
-        default="sample",
-        help="sample sends a single hardcoded event; latest downloads latest GKG file",
+        choices=["latest", "stream"],
+        default="latest",
+        help="latest runs one batch; stream runs continuously",
     )
     parser.add_argument(
         "--max-records",
@@ -89,15 +98,28 @@ def parse_args():
         default=200,
         help="Maximum number of latest GKG rows to publish when mode=latest",
     )
+    parser.add_argument(
+        "--poll-interval-seconds",
+        type=int,
+        default=60,
+        help="Polling interval for mode=stream",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    if args.mode == "sample":
-        publish_sample()
-    else:
-        publish_latest(max_records=args.max_records)
+    try:
+        if args.mode == "latest":
+            publish_latest(max_records=args.max_records)
+        else:
+            stream_latest(
+                max_records=args.max_records,
+                poll_interval_seconds=args.poll_interval_seconds,
+            )
+    except KeyboardInterrupt:
+        print("Stopping producer stream")
+        producer.flush()
 
 
 if __name__ == "__main__":
