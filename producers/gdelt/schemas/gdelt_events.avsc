@@ -1,0 +1,24 @@
+{
+	"namespace": "gdelt.events",
+	"type": "record",
+	"name": "GDELTRawEvent",
+	"fields": [
+		{ "name": "global_event_id", "type": "string" },
+		{ "name": "day", "type": ["null", "string"], "default": null },
+		{ "name": "month_year", "type": ["null", "string"], "default": null },
+		{ "name": "year", "type": ["null", "string"], "default": null },
+		{ "name": "fraction_date", "type": ["null", "float"], "default": null },
+		{ "name": "actor1_name", "type": ["null", "string"], "default": null },
+		{ "name": "actor2_name", "type": ["null", "string"], "default": null },
+		{ "name": "event_code", "type": ["null", "string"], "default": null },
+		{ "name": "event_base_code", "type": ["null", "string"], "default": null },
+		{ "name": "event_root_code", "type": ["null", "string"], "default": null },
+		{ "name": "quad_class", "type": ["null", "int"], "default": null },
+		{ "name": "goldstein_scale", "type": ["null", "float"], "default": null },
+		{ "name": "num_mentions", "type": ["null", "int"], "default": null },
+		{ "name": "num_sources", "type": ["null", "int"], "default": null },
+		{ "name": "num_articles", "type": ["null", "int"], "default": null },
+		{ "name": "avg_tone", "type": ["null", "float"], "default": null },
+		{ "name": "source_url", "type": ["null", "string"], "default": null }
+	]
+}
